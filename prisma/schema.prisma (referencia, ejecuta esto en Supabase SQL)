@@ -1,0 +1,12 @@
+create table "Movie" (
+  id serial primary key,
+  title text not null,
+  genre text not null
+);
+
+create table "Ticket" (
+  id serial primary key,
+  seat text not null,
+  buyer text not null,
+  movie_id integer not null references "Movie"(id)
+);
