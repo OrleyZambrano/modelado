@@ -93,3 +93,7 @@ jobs:
         run: |2-
 
           echo ${{ steps.deploy.outputs.url }}
+
+          env:
+            skip_deploy_on_missing_secrets: true
+          
