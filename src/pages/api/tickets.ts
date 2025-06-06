@@ -1,13 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { prisma } from '../../lib/prisma';
+import { getPrismaClient } from '../../lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  let prisma;
+  
   try {
+    if (!process.env.DATABASE_URL) {
+      return res.status(500).json({ error: 'DATABASE_URL no configurada' });
+    }
+
+    prisma = await getPrismaClient();
+    
     if (req.method === 'GET') {
-      if (!process.env.DATABASE_URL) {
-        return res.status(500).json({ error: 'DATABASE_URL no configurada' });
-      }
-      
       const tickets = await prisma.ticket.findMany();
       res.status(200).json(tickets);
     } else if (req.method === 'POST') {
@@ -26,6 +30,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   } catch (error) {
     console.error('Error en /api/tickets:', error);
+    
+    // Si es error de prepared statement, reintentar con nueva conexión
+    if (error instanceof Error && (
+      error.message.includes('prepared statement') || 
+      error.message.includes('already exists')
+    )) {
+      try {
+        if (prisma) await prisma.$disconnect();
+        const newPrisma = await getPrismaClient();
+        
+        if (req.method === 'GET') {
+          const tickets = await newPrisma.ticket.findMany();
+          return res.status(200).json(tickets);
+        }
+      } catch (retryError) {
+        console.error('Error en retry:', retryError);
+      }
+    }
+    
     res.status(500).json({ 
       error: 'Error interno del servidor',
       details: error instanceof Error ? error.message : 'Error desconocido'
