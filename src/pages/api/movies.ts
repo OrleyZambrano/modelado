@@ -1,13 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
-
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient();
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+import { prisma } from '../../lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -39,5 +31,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       error: 'Error interno del servidor',
       details: error instanceof Error ? error.message : 'Error desconocido'
     });
+  } finally {
+    // No cerrar la conexión en cada request en producción
+    if (process.env.NODE_ENV !== 'production') {
+      await prisma.$disconnect();
+    }
   }
 }
