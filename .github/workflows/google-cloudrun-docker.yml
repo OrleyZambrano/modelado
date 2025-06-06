@@ -63,11 +63,11 @@ jobs:
       - name: 'Configure Docker'
         run: gcloud auth configure-docker
 
-      - name: 'Build and Push Container'
-        run: |-
-          DOCKER_TAG="gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:${{ github.sha }}"
-          docker build --tag "${DOCKER_TAG}" .
-          docker push "${DOCKER_TAG}"
+      - name: 'Build and tag Docker image'
+        run: |
+          docker build -t $DOCKER_TAG .
+        env:
+          DOCKER_TAG: 'gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:${{ github.sha }}'
 
       - name: 'Deploy to Cloud Run'
         uses: 'google-github-actions/deploy-cloudrun@v2'

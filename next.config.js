@@ -1,14 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
-  trailingSlash: true,
-  images: {
-    unoptimized: true
-  },
-  // Deshabilitar SSR para Azure Static Web Apps
-  experimental: {
-    isrMemoryCacheSize: 0,
-  },
+  // Solo usar export para Azure, no para Docker
+  ...(process.env.AZURE_BUILD ? {
+    output: 'export',
+    trailingSlash: true,
+    images: {
+      unoptimized: true
+    }
+  } : {
+    output: 'standalone'
+  })
 }
 
 module.exports = nextConfig
