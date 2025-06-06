@@ -6,6 +6,10 @@ const nextConfig = {
     trailingSlash: true,
     images: {
       unoptimized: true
+    },
+    // Deshabilitar funciones del servidor para Azure
+    experimental: {
+      appDir: false
     }
   } : {
     output: 'standalone'
