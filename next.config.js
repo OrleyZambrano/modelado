@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Solo usar export para Azure, no para Docker
-  ...(process.env.AZURE_BUILD ? {
+  // Detectar si estamos en Azure o en producción general
+  ...(process.env.AZURE_BUILD || process.env.GITHUB_ACTIONS ? {
     output: 'export',
     trailingSlash: true,
     images: {

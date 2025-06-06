@@ -19,34 +19,6 @@ jobs:
         with:
           submodules: true
           lfs: false
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci
-      - name: Generate Prisma Client
-        run: npx prisma generate
-      - name: Build for Azure (static export)
-        run: |
-          AZURE_BUILD=true npm run build
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      - name: Check if out directory exists and create index.html if missing
-        run: |
-          if [ ! -d "out" ]; then
-            echo "Creating out directory..."
-            mkdir -p out
-          fi
-          if [ ! -f "out/index.html" ]; then
-            echo "Creating basic index.html..."
-            cp .next/static/index.html out/ || echo "<html><body><h1>Next.js App</h1></body></html>" > out/index.html
-          fi
-          echo "Contents of out directory:"
-          ls -la out/ || echo "out directory not found"
-          echo "Contents of root directory:"
-          ls -la
       - name: Deploy to Azure Static Web Apps
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -56,8 +28,11 @@ jobs:
           action: "upload"
           app_location: "/"
           output_location: "out"
-          skip_app_build: true
+          app_build_command: "npm run build && npm run export"
           skip_api_build: true
+        env:
+          AZURE_BUILD: true
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
