@@ -1,52 +1,21 @@
 import { PrismaClient } from '@prisma/client'
 
-declare global {
-  // eslint-disable-next-line no-var
-  var __prisma: PrismaClient | undefined
-}
-
-// Función para crear cliente Prisma con configuración optimizada para serverless
-function createPrismaClient() {
+// Configuración específica para evitar problemas de prepared statements
+const createPrismaClient = () => {
   return new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
     datasources: {
       db: {
         url: process.env.DATABASE_URL
       }
     },
+    log: process.env.NODE_ENV === 'development' ? ['error'] : [],
   })
 }
 
-// En desarrollo usar singleton, en producción crear nueva instancia
-export const prisma = process.env.NODE_ENV === 'production' 
-  ? createPrismaClient()
-  : (globalThis.__prisma ?? (globalThis.__prisma = createPrismaClient()))
-
-// Función para obtener cliente con reconexión automática
+// Siempre crear nueva instancia para evitar conflictos
 export async function getPrismaClient() {
-  // En producción, siempre crear nueva instancia para evitar prepared statements
-  if (process.env.NODE_ENV === 'production') {
-    const client = createPrismaClient()
-    try {
-      // Test de conexión
-      await client.$queryRaw`SELECT 1`
-      return client
-    } catch (error) {
-      console.error('Error testing connection:', error)
-      await client.$disconnect()
-      throw error
-    }
-  }
-  
-  // En desarrollo usar singleton
-  try {
-    await prisma.$connect()
-    return prisma
-  } catch (error) {
-    console.error('Error connecting to Prisma:', error)
-    await prisma.$disconnect()
-    throw error
-  }
+  const client = createPrismaClient()
+  return client
 }
 
 // Función para desconectar cliente
@@ -54,6 +23,20 @@ export async function disconnectPrisma(client: PrismaClient) {
   try {
     await client.$disconnect()
   } catch (error) {
-    console.error('Error disconnecting Prisma:', error)
+    // Ignorar errores de desconexión
+    console.warn('Warning disconnecting Prisma:', error)
+  }
+}
+
+// Función helper para ejecutar operaciones con auto-cleanup
+export async function withPrisma<T>(
+  operation: (prisma: PrismaClient) => Promise<T>
+): Promise<T> {
+  const prisma = await getPrismaClient()
+  try {
+    const result = await operation(prisma)
+    return result
+  } finally {
+    await disconnectPrisma(prisma)
   }
 }
