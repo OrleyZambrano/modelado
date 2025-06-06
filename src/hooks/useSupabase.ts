@@ -43,9 +43,9 @@ export const useSupabase = (): SupabaseConfig => {
         });
 
         // Verificar conectividad
-        const { data, error: testError } = await supabaseClient
+        const { error: testError } = await supabaseClient
           .from('Movie')
-          .select('count(*)')
+          .select('count(*)', { count: 'exact', head: true })
           .limit(1);
 
         if (testError) {
