@@ -35,11 +35,9 @@ on:
       - 'master'
 
 env:
-  PROJECT_ID: 'tu-proyecto-id' # Cambia por tu project ID real
-  REGION: 'us-central1' # Cambia por tu región preferida
-  SERVICE: 'modelado-app' # Cambia por el nombre de tu servicio
-  # Comentamos esta línea hasta configurar correctamente Workload Identity
-  # WORKLOAD_IDENTITY_PROVIDER: 'projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider'
+  PROJECT_ID: 'delpy-462022' # Tu project ID real
+  REGION: 'us-central1'
+  SERVICE: 'modelado-app'
 
 jobs:
   deploy:
@@ -53,7 +51,6 @@ jobs:
       - name: 'Checkout'
         uses: 'actions/checkout@v4'
 
-      # Alternativa: usar service account key en lugar de Workload Identity
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v2'
