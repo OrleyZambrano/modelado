@@ -39,12 +39,12 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  // Actualizar error si hay problema con Supabase
+  // Actualizar error si hay problema con Supabase (solo para Azure)
   useEffect(() => {
-    if (supabaseError) {
+    if (supabaseError && isAzure) {
       setError(supabaseError);
     }
-  }, [supabaseError]);
+  }, [supabaseError, isAzure]);
 
   const fetchMovies = useCallback(async () => {
     if (!mounted) return;
@@ -73,7 +73,9 @@ export default function Home() {
         
         if (!res.ok) {
           const errorText = await res.text();
-          throw new Error(`Error ${res.status}: ${errorText}`);
+          console.error('Error from API:', res.status, errorText);
+          // Solo mostrar error genérico, no el detalle técnico
+          throw new Error('Error al conectar con la base de datos');
         }
         
         const data = await res.json();
@@ -83,7 +85,12 @@ export default function Home() {
       }
     } catch (err) {
       console.error('Error fetching movies:', err);
-      setError(err instanceof Error ? err.message : 'Error desconocido al cargar películas');
+      // Para Google Cloud Run, solo mostrar mensaje genérico
+      if (!isAzure) {
+        setError('Error al cargar datos. Intenta recargar la página.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Error desconocido al cargar películas');
+      }
       setMovies([]);
     } finally {
       setLoading(false);
@@ -116,7 +123,9 @@ export default function Home() {
         
         if (!res.ok) {
           const errorText = await res.text();
-          throw new Error(`Error ${res.status}: ${errorText}`);
+          console.error('Error from tickets API:', res.status, errorText);
+          // No mostrar error para tickets, solo logear
+          return;
         }
         
         const data = await res.json();
@@ -124,8 +133,11 @@ export default function Home() {
       }
     } catch (err) {
       console.error('Error fetching tickets:', err);
-      setError(err instanceof Error ? err.message : 'Error desconocido al cargar tickets');
-      setTickets([]);
+      // Para Google Cloud Run, no mostrar error de tickets
+      if (isAzure) {
+        setError(err instanceof Error ? err.message : 'Error desconocido al cargar tickets');
+        setTickets([]);
+      }
     }
   }, [isAzure, supabase, mounted]);
 
@@ -159,8 +171,8 @@ export default function Home() {
         });
         
         if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(`Error ${res.status}: ${errorText}`);
+          console.error('Error adding movie:', res.status);
+          throw new Error('Error al agregar película');
         }
       }
       
@@ -196,8 +208,8 @@ export default function Home() {
         });
         
         if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(`Error ${res.status}: ${errorText}`);
+          console.error('Error adding ticket:', res.status);
+          throw new Error('Error al agregar ticket');
         }
       }
       
@@ -233,8 +245,8 @@ export default function Home() {
         });
         
         if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(`Error ${res.status}: ${errorText}`);
+          console.error('Error deleting movie:', res.status);
+          throw new Error('Error al eliminar película');
         }
       }
       
@@ -267,8 +279,8 @@ export default function Home() {
         });
         
         if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(`Error ${res.status}: ${errorText}`);
+          console.error('Error deleting ticket:', res.status);
+          throw new Error('Error al eliminar ticket');
         }
       }
       
@@ -308,7 +320,7 @@ export default function Home() {
           </div>
         )}
         
-        {/* Mostrar información de debug en Azure */}
+        {/* Mostrar información de debug solo en Azure */}
         {isAzure && (
           <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded mb-4 text-xs">
             <strong>Debug:</strong> 
@@ -318,6 +330,7 @@ export default function Home() {
           </div>
         )}
         
+        {/* Solo mostrar errores críticos que afecten la funcionalidad */}
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             <strong>Error:</strong> {error}
