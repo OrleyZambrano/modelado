@@ -41,13 +41,48 @@ export default function Home() {
     // Solo importar y configurar Supabase en el cliente
     if (typeof window !== 'undefined') {
       import('@supabase/supabase-js').then(({ createClient }) => {
-        const supabaseUrl = 'https://nskkhyvjhkdzpnhmncqa.supabase.co';
-        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5za2toeXZqaGtkenBuaG1uY3FhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc3NDk1NTQsImV4cCI6MjA1MzMyNTU1NH0.uE7hk_7fvPb6_2_jKp9HX7lXmN42kYK6BZbdgQ8mCRo';
+        // Intentar usar variables de entorno primero, luego fallback a valores embebidos
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://nskkhyvjhkdzpnhmncqa.supabase.co';
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5za2toeXZqaGtkenBuaG1uY3FhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc3NDk1NTQsImV4cCI6MjA1MzMyNTU1NH0.uE7hk_7fvPb6_2_jKp9HX7lXmN42kYK6BZbdgQ8mCRo';
+        
+        console.log('Configurando Supabase:', {
+          url: supabaseUrl,
+          keyLength: supabaseAnonKey.length,
+          isAzure,
+          envVars: {
+            url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+            key: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+          }
+        });
         
         if (supabaseUrl && supabaseAnonKey) {
-          const client = createClient(supabaseUrl, supabaseAnonKey);
-          setSupabase(client);
+          try {
+            const client = createClient(supabaseUrl, supabaseAnonKey, {
+              auth: {
+                autoRefreshToken: true,
+                persistSession: false,
+                detectSessionInUrl: false
+              },
+              global: {
+                headers: {
+                  'apikey': supabaseAnonKey,
+                  'Authorization': `Bearer ${supabaseAnonKey}`
+                }
+              }
+            });
+            setSupabase(client);
+            console.log('Cliente Supabase creado exitosamente');
+          } catch (error) {
+            console.error('Error al crear cliente Supabase:', error);
+            setError('Error al configurar conexión con la base de datos');
+          }
+        } else {
+          console.error('Faltan credenciales de Supabase');
+          setError('Credenciales de Supabase no disponibles');
         }
+      }).catch(error => {
+        console.error('Error al importar Supabase:', error);
+        setError('Error al cargar la librería de base de datos');
       });
     }
   }, []);
@@ -60,13 +95,18 @@ export default function Home() {
       setError(null);
       
       if (isAzure && supabase) {
+        console.log('Fetching movies from Supabase...');
         // Usar Supabase directamente en Azure
         const { data, error: supabaseError } = await supabase
           .from('Movie')
           .select('*, Ticket(*)')
           .order('id', { ascending: true });
         
-        if (supabaseError) throw supabaseError;
+        if (supabaseError) {
+          console.error('Error de Supabase:', supabaseError);
+          throw supabaseError;
+        }
+        console.log('Movies fetched successfully:', data);
         setMovies(data || []);
       } else if (!isAzure) {
         // Usar API en Google Cloud Run
@@ -98,13 +138,18 @@ export default function Home() {
       setError(null);
       
       if (isAzure && supabase) {
+        console.log('Fetching tickets from Supabase...');
         // Usar Supabase directamente en Azure
         const { data, error: supabaseError } = await supabase
           .from('Ticket')
           .select('*')
           .order('id', { ascending: true });
         
-        if (supabaseError) throw supabaseError;
+        if (supabaseError) {
+          console.error('Error de Supabase en tickets:', supabaseError);
+          throw supabaseError;
+        }
+        console.log('Tickets fetched successfully:', data);
         setTickets(data || []);
       } else if (!isAzure) {
         // Usar API en Google Cloud Run
@@ -301,6 +346,16 @@ export default function Home() {
         {isAzure && !supabase && (
           <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
             <strong>Configurando:</strong> Estableciendo conexión con la base de datos...
+          </div>
+        )}
+        
+        {/* Mostrar información de debug en Azure */}
+        {isAzure && typeof window !== 'undefined' && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded mb-4 text-xs">
+            <strong>Debug:</strong> 
+            URL: {process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Configured' : 'Missing'} | 
+            Key: {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Configured' : 'Missing'} | 
+            Client: {supabase ? 'Ready' : 'Not ready'}
           </div>
         )}
         
