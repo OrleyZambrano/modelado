@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { SupabaseClient } from '@supabase/supabase-js';
+import { useSupabase } from "../hooks/useSupabase";
 
 interface Movie {
   id: number;
@@ -32,60 +32,19 @@ export default function Home() {
   // Detectar si estamos en Azure (no hay APIs) o Google Cloud Run (con APIs)
   const isAzure = typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net');
 
-  // Configurar Supabase solo en el cliente
-  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  // Usar el hook personalizado de Supabase
+  const { client: supabase, isConfigured, error: supabaseError } = useSupabase();
 
   useEffect(() => {
     setMounted(true);
-    
-    // Solo importar y configurar Supabase en el cliente
-    if (typeof window !== 'undefined') {
-      import('@supabase/supabase-js').then(({ createClient }) => {
-        // Intentar usar variables de entorno primero, luego fallback a valores embebidos
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://nskkhyvjhkdzpnhmncqa.supabase.co';
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5za2toeXZqaGtkenBuaG1uY3FhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc3NDk1NTQsImV4cCI6MjA1MzMyNTU1NH0.uE7hk_7fvPb6_2_jKp9HX7lXmN42kYK6BZbdgQ8mCRo';
-        
-        console.log('Configurando Supabase:', {
-          url: supabaseUrl,
-          keyLength: supabaseAnonKey.length,
-          isAzure,
-          envVars: {
-            url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-            key: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-          }
-        });
-        
-        if (supabaseUrl && supabaseAnonKey) {
-          try {
-            const client = createClient(supabaseUrl, supabaseAnonKey, {
-              auth: {
-                autoRefreshToken: true,
-                persistSession: false,
-                detectSessionInUrl: false
-              },
-              global: {
-                headers: {
-                  'apikey': supabaseAnonKey,
-                  'Authorization': `Bearer ${supabaseAnonKey}`
-                }
-              }
-            });
-            setSupabase(client);
-            console.log('Cliente Supabase creado exitosamente');
-          } catch (error) {
-            console.error('Error al crear cliente Supabase:', error);
-            setError('Error al configurar conexión con la base de datos');
-          }
-        } else {
-          console.error('Faltan credenciales de Supabase');
-          setError('Credenciales de Supabase no disponibles');
-        }
-      }).catch(error => {
-        console.error('Error al importar Supabase:', error);
-        setError('Error al cargar la librería de base de datos');
-      });
-    }
   }, []);
+
+  // Actualizar error si hay problema con Supabase
+  useEffect(() => {
+    if (supabaseError) {
+      setError(supabaseError);
+    }
+  }, [supabaseError]);
 
   const fetchMovies = useCallback(async () => {
     if (!mounted) return;
@@ -94,7 +53,7 @@ export default function Home() {
       setLoading(true);
       setError(null);
       
-      if (isAzure && supabase) {
+      if (isAzure && supabase && isConfigured) {
         console.log('Fetching movies from Supabase...');
         // Usar Supabase directamente en Azure
         const { data, error: supabaseError } = await supabase
@@ -119,7 +78,7 @@ export default function Home() {
         
         const data = await res.json();
         setMovies(Array.isArray(data) ? data : []);
-      } else if (isAzure && !supabase) {
+      } else if (isAzure && !isConfigured) {
         setError('Configurando conexión con la base de datos...');
       }
     } catch (err) {
@@ -129,7 +88,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [isAzure, supabase, mounted]);
+  }, [isAzure, supabase, isConfigured, mounted]);
 
   const fetchTickets = useCallback(async () => {
     if (!mounted) return;
@@ -137,7 +96,7 @@ export default function Home() {
     try {
       setError(null);
       
-      if (isAzure && supabase) {
+      if (isAzure && supabase && isConfigured) {
         console.log('Fetching tickets from Supabase...');
         // Usar Supabase directamente en Azure
         const { data, error: supabaseError } = await supabase
@@ -168,14 +127,14 @@ export default function Home() {
       setError(err instanceof Error ? err.message : 'Error desconocido al cargar tickets');
       setTickets([]);
     }
-  }, [isAzure, supabase, mounted]);
+  }, [isAzure, supabase, isConfigured, mounted]);
 
   useEffect(() => {
-    if (mounted && (supabase || !isAzure)) {
+    if (mounted && ((supabase && isConfigured) || !isAzure)) {
       fetchMovies();
       fetchTickets();
     }
-  }, [fetchMovies, fetchTickets, mounted, supabase, isAzure]);
+  }, [fetchMovies, fetchTickets, mounted, supabase, isConfigured, isAzure]);
 
   async function handleAddMovie(e: React.FormEvent) {
     e.preventDefault();
@@ -343,19 +302,19 @@ export default function Home() {
         </h1>
         
         {/* Mostrar estado de configuración en Azure */}
-        {isAzure && !supabase && (
+        {isAzure && !isConfigured && (
           <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
             <strong>Configurando:</strong> Estableciendo conexión con la base de datos...
           </div>
         )}
         
         {/* Mostrar información de debug en Azure */}
-        {isAzure && typeof window !== 'undefined' && (
+        {isAzure && (
           <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded mb-4 text-xs">
             <strong>Debug:</strong> 
-            URL: {process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Configured' : 'Missing'} | 
-            Key: {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Configured' : 'Missing'} | 
-            Client: {supabase ? 'Ready' : 'Not ready'}
+            Client: {supabase ? 'Ready' : 'Not ready'} | 
+            Configured: {isConfigured ? 'Yes' : 'No'} | 
+            Error: {supabaseError || 'None'}
           </div>
         )}
         
