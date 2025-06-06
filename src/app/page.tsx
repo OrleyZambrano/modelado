@@ -53,12 +53,12 @@ export default function Home() {
       setLoading(true);
       setError(null);
       
-      if (isAzure && supabase && isConfigured) {
+      if (isAzure && supabase) {
         console.log('Fetching movies from Supabase...');
-        // Usar Supabase directamente en Azure
+        // Usar Supabase directamente en Azure - intentar sin relaciones primero
         const { data, error: supabaseError } = await supabase
           .from('Movie')
-          .select('*, Ticket(*)')
+          .select('*')
           .order('id', { ascending: true });
         
         if (supabaseError) {
@@ -78,7 +78,7 @@ export default function Home() {
         
         const data = await res.json();
         setMovies(Array.isArray(data) ? data : []);
-      } else if (isAzure && !isConfigured) {
+      } else if (isAzure && !supabase) {
         setError('Configurando conexión con la base de datos...');
       }
     } catch (err) {
@@ -88,7 +88,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [isAzure, supabase, isConfigured, mounted]);
+  }, [isAzure, supabase, mounted]);
 
   const fetchTickets = useCallback(async () => {
     if (!mounted) return;
@@ -96,7 +96,7 @@ export default function Home() {
     try {
       setError(null);
       
-      if (isAzure && supabase && isConfigured) {
+      if (isAzure && supabase) {
         console.log('Fetching tickets from Supabase...');
         // Usar Supabase directamente en Azure
         const { data, error: supabaseError } = await supabase
@@ -127,14 +127,14 @@ export default function Home() {
       setError(err instanceof Error ? err.message : 'Error desconocido al cargar tickets');
       setTickets([]);
     }
-  }, [isAzure, supabase, isConfigured, mounted]);
+  }, [isAzure, supabase, mounted]);
 
   useEffect(() => {
-    if (mounted && ((supabase && isConfigured) || !isAzure)) {
+    if (mounted && ((supabase) || !isAzure)) {
       fetchMovies();
       fetchTickets();
     }
-  }, [fetchMovies, fetchTickets, mounted, supabase, isConfigured, isAzure]);
+  }, [fetchMovies, fetchTickets, mounted, supabase, isAzure]);
 
   async function handleAddMovie(e: React.FormEvent) {
     e.preventDefault();
@@ -302,7 +302,7 @@ export default function Home() {
         </h1>
         
         {/* Mostrar estado de configuración en Azure */}
-        {isAzure && !isConfigured && (
+        {isAzure && !supabase && (
           <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
             <strong>Configurando:</strong> Estableciendo conexión con la base de datos...
           </div>

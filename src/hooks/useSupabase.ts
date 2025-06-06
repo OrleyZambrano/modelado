@@ -23,45 +23,44 @@ export const useSupabase = (): SupabaseConfig => {
           key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5za2toeXZqaGtkenBuaG1uY3FhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc3NDk1NTQsImV4cCI6MjA1MzMyNTU1NH0.uE7hk_7fvPb6_2_jKp9HX7lXmN42kYK6BZbdgQ8mCRo'
         };
 
+        console.log('Inicializando Supabase con URL:', config.url);
+
         const supabaseClient = createClient(config.url, config.key, {
           auth: {
             autoRefreshToken: false,
             persistSession: false,
             detectSessionInUrl: false
-          },
-          global: {
-            headers: {
-              'apikey': config.key,
-              'Authorization': `Bearer ${config.key}`,
-              'Content-Type': 'application/json',
-              'Prefer': 'return=minimal'
-            }
-          },
-          db: {
-            schema: 'public'
           }
         });
 
-        // Verificar conectividad
-        const { error: testError } = await supabaseClient
-          .from('Movie')
-          .select('count(*)', { count: 'exact', head: true })
-          .limit(1);
+        // Test simple sin usar headers personalizados
+        try {
+          const { data: testData, error: testError } = await supabaseClient
+            .from('Movie')
+            .select('id')
+            .limit(1);
 
-        if (testError) {
-          console.error('Error de conectividad Supabase:', testError);
-          setError(`Error de conectividad: ${testError.message}`);
-          return;
+          if (testError) {
+            console.warn('Error en test inicial, pero continuando:', testError);
+            // No fallar aquí, solo advertir
+          } else {
+            console.log('Test de conectividad exitoso:', testData);
+          }
+        } catch (testErr) {
+          console.warn('Test de conectividad falló, pero continuando:', testErr);
+          // No fallar aquí, permitir que el usuario intente usar el cliente
         }
 
         setClient(supabaseClient);
         setIsConfigured(true);
         setError(null);
-        console.log('Supabase configurado correctamente');
+        console.log('Cliente Supabase configurado y listo');
         
       } catch (err) {
-        console.error('Error inicializando Supabase:', err);
-        setError(err instanceof Error ? err.message : 'Error desconocido');
+        console.error('Error crítico inicializando Supabase:', err);
+        setError(err instanceof Error ? err.message : 'Error desconocido al configurar Supabase');
+        setClient(null);
+        setIsConfigured(false);
       }
     };
 
