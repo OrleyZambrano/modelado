@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabaseClient";
 
 interface Movie {
   id: number;
@@ -27,6 +28,9 @@ export default function Home() {
   const [ticketBuyer, setTicketBuyer] = useState("");
   const [selectedMovie, setSelectedMovie] = useState<number | null>(null);
 
+  // Detectar si estamos en Azure (no hay APIs) o Google Cloud Run (con APIs)
+  const isAzure = typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net');
+
   useEffect(() => {
     fetchMovies();
     fetchTickets();
@@ -36,15 +40,28 @@ export default function Home() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch("/api/movies");
       
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Error ${res.status}: ${errorText}`);
+      if (isAzure) {
+        // Usar Supabase directamente en Azure
+        const { data, error: supabaseError } = await supabase
+          .from('Movie')
+          .select('*, Ticket(*)')
+          .order('id', { ascending: true });
+        
+        if (supabaseError) throw supabaseError;
+        setMovies(data || []);
+      } else {
+        // Usar API en Google Cloud Run
+        const res = await fetch("/api/movies");
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Error ${res.status}: ${errorText}`);
+        }
+        
+        const data = await res.json();
+        setMovies(Array.isArray(data) ? data : []);
       }
-      
-      const data = await res.json();
-      setMovies(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching movies:', err);
       setError(err instanceof Error ? err.message : 'Error desconocido al cargar películas');
@@ -57,15 +74,28 @@ export default function Home() {
   async function fetchTickets() {
     try {
       setError(null);
-      const res = await fetch("/api/tickets");
       
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Error ${res.status}: ${errorText}`);
+      if (isAzure) {
+        // Usar Supabase directamente en Azure
+        const { data, error: supabaseError } = await supabase
+          .from('Ticket')
+          .select('*')
+          .order('id', { ascending: true });
+        
+        if (supabaseError) throw supabaseError;
+        setTickets(data || []);
+      } else {
+        // Usar API en Google Cloud Run
+        const res = await fetch("/api/tickets");
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Error ${res.status}: ${errorText}`);
+        }
+        
+        const data = await res.json();
+        setTickets(Array.isArray(data) ? data : []);
       }
-      
-      const data = await res.json();
-      setTickets(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching tickets:', err);
       setError(err instanceof Error ? err.message : 'Error desconocido al cargar tickets');
@@ -79,15 +109,26 @@ export default function Home() {
     
     try {
       setError(null);
-      const res = await fetch("/api/movies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: movieTitle, genre: movieGenre })
-      });
       
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Error ${res.status}: ${errorText}`);
+      if (isAzure) {
+        // Usar Supabase directamente en Azure
+        const { error: supabaseError } = await supabase
+          .from('Movie')
+          .insert([{ title: movieTitle, genre: movieGenre }]);
+        
+        if (supabaseError) throw supabaseError;
+      } else {
+        // Usar API en Google Cloud Run
+        const res = await fetch("/api/movies", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: movieTitle, genre: movieGenre })
+        });
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Error ${res.status}: ${errorText}`);
+        }
       }
       
       setMovieTitle("");
@@ -105,15 +146,26 @@ export default function Home() {
     
     try {
       setError(null);
-      const res = await fetch("/api/tickets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seat: ticketSeat, buyer: ticketBuyer, movie_id: selectedMovie })
-      });
       
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Error ${res.status}: ${errorText}`);
+      if (isAzure) {
+        // Usar Supabase directamente en Azure
+        const { error: supabaseError } = await supabase
+          .from('Ticket')
+          .insert([{ seat: ticketSeat, buyer: ticketBuyer, movie_id: selectedMovie }]);
+        
+        if (supabaseError) throw supabaseError;
+      } else {
+        // Usar API en Google Cloud Run
+        const res = await fetch("/api/tickets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ seat: ticketSeat, buyer: ticketBuyer, movie_id: selectedMovie })
+        });
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Error ${res.status}: ${errorText}`);
+        }
       }
       
       setTicketSeat("");
@@ -130,15 +182,27 @@ export default function Home() {
   async function handleDeleteMovie(id: number) {
     try {
       setError(null);
-      const res = await fetch("/api/movies", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id })
-      });
       
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Error ${res.status}: ${errorText}`);
+      if (isAzure) {
+        // Usar Supabase directamente en Azure
+        const { error: supabaseError } = await supabase
+          .from('Movie')
+          .delete()
+          .eq('id', id);
+        
+        if (supabaseError) throw supabaseError;
+      } else {
+        // Usar API en Google Cloud Run
+        const res = await fetch("/api/movies", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id })
+        });
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Error ${res.status}: ${errorText}`);
+        }
       }
       
       await fetchMovies();
@@ -152,15 +216,27 @@ export default function Home() {
   async function handleDeleteTicket(id: number) {
     try {
       setError(null);
-      const res = await fetch("/api/tickets", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id })
-      });
       
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Error ${res.status}: ${errorText}`);
+      if (isAzure) {
+        // Usar Supabase directamente en Azure
+        const { error: supabaseError } = await supabase
+          .from('Ticket')
+          .delete()
+          .eq('id', id);
+        
+        if (supabaseError) throw supabaseError;
+      } else {
+        // Usar API en Google Cloud Run
+        const res = await fetch("/api/tickets", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id })
+        });
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Error ${res.status}: ${errorText}`);
+        }
       }
       
       await fetchTickets();
@@ -174,7 +250,11 @@ export default function Home() {
   return (
     <div className="min-h-screen p-8 pb-20 font-[family-name:var(--font-geist-sans)] bg-white dark:bg-black">
       <main className="p-8 max-w-xl mx-auto">
-        <h1 className="text-2xl font-bold mb-4">Películas y Tickets</h1>
+        <h1 className="text-2xl font-bold mb-4">
+          Películas y Tickets 
+          {isAzure && <span className="text-blue-500 text-sm">(Azure - Supabase Direct)</span>}
+          {!isAzure && <span className="text-green-500 text-sm">(Google Cloud Run - API)</span>}
+        </h1>
         
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
