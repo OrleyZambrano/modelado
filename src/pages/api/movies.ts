@@ -1,7 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { prisma } from '../../lib/prisma';
+import { getPrismaClient } from '../../lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const prisma = await getPrismaClient();
+  
   try {
     if (req.method === 'GET') {
       // Verificar conexión a la base de datos
@@ -9,7 +11,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'DATABASE_URL no configurada' });
       }
       
-      const movies = await prisma.movie.findMany({ include: { tickets: true } });
+      const movies = await prisma.movie.findMany({ 
+        include: { tickets: true },
+        // Evitar cachear consultas preparadas
+        ...(process.env.NODE_ENV === 'production' && { cacheStrategy: { ttl: 0 } })
+      });
       res.status(200).json(movies);
     } else if (req.method === 'POST') {
       const { title, genre } = req.body;
@@ -27,14 +33,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   } catch (error) {
     console.error('Error en /api/movies:', error);
+    
+    // Si es error de prepared statement, resetear conexión
+    if (error instanceof Error && error.message.includes('prepared statement')) {
+      try {
+        await prisma.$disconnect();
+        const newPrisma = await getPrismaClient();
+        // Reintentar la operación
+        if (req.method === 'GET') {
+          const movies = await newPrisma.movie.findMany({ include: { tickets: true } });
+          return res.status(200).json(movies);
+        }
+      } catch (retryError) {
+        console.error('Error en retry:', retryError);
+      }
+    }
+    
     res.status(500).json({ 
       error: 'Error interno del servidor',
       details: error instanceof Error ? error.message : 'Error desconocido'
     });
-  } finally {
-    // No cerrar la conexión en cada request en producción
-    if (process.env.NODE_ENV !== 'production') {
-      await prisma.$disconnect();
-    }
   }
 }
