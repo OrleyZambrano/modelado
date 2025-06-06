@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 interface Movie {
@@ -31,17 +31,12 @@ export default function Home() {
   // Detectar si estamos en Azure (no hay APIs) o Google Cloud Run (con APIs)
   const isAzure = typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net');
 
-  useEffect(() => {
-    fetchMovies();
-    fetchTickets();
-  }, []);
-
-  async function fetchMovies() {
+  const fetchMovies = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      if (isAzure) {
+      if (isAzure && supabase) {
         // Usar Supabase directamente en Azure
         const { data, error: supabaseError } = await supabase
           .from('Movie')
@@ -50,7 +45,7 @@ export default function Home() {
         
         if (supabaseError) throw supabaseError;
         setMovies(data || []);
-      } else {
+      } else if (!isAzure) {
         // Usar API en Google Cloud Run
         const res = await fetch("/api/movies");
         
@@ -61,6 +56,8 @@ export default function Home() {
         
         const data = await res.json();
         setMovies(Array.isArray(data) ? data : []);
+      } else {
+        setError('Supabase no está configurado correctamente');
       }
     } catch (err) {
       console.error('Error fetching movies:', err);
@@ -69,13 +66,13 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [isAzure]);
 
-  async function fetchTickets() {
+  const fetchTickets = useCallback(async () => {
     try {
       setError(null);
       
-      if (isAzure) {
+      if (isAzure && supabase) {
         // Usar Supabase directamente en Azure
         const { data, error: supabaseError } = await supabase
           .from('Ticket')
@@ -84,7 +81,7 @@ export default function Home() {
         
         if (supabaseError) throw supabaseError;
         setTickets(data || []);
-      } else {
+      } else if (!isAzure) {
         // Usar API en Google Cloud Run
         const res = await fetch("/api/tickets");
         
@@ -101,7 +98,15 @@ export default function Home() {
       setError(err instanceof Error ? err.message : 'Error desconocido al cargar tickets');
       setTickets([]);
     }
-  }
+  }, [isAzure]);
+
+  useEffect(() => {
+    // Solo ejecutar en el cliente
+    if (typeof window !== 'undefined') {
+      fetchMovies();
+      fetchTickets();
+    }
+  }, [fetchMovies, fetchTickets]);
 
   async function handleAddMovie(e: React.FormEvent) {
     e.preventDefault();
@@ -110,14 +115,14 @@ export default function Home() {
     try {
       setError(null);
       
-      if (isAzure) {
+      if (isAzure && supabase) {
         // Usar Supabase directamente en Azure
         const { error: supabaseError } = await supabase
           .from('Movie')
           .insert([{ title: movieTitle, genre: movieGenre }]);
         
         if (supabaseError) throw supabaseError;
-      } else {
+      } else if (!isAzure) {
         // Usar API en Google Cloud Run
         const res = await fetch("/api/movies", {
           method: "POST",
@@ -147,14 +152,14 @@ export default function Home() {
     try {
       setError(null);
       
-      if (isAzure) {
+      if (isAzure && supabase) {
         // Usar Supabase directamente en Azure
         const { error: supabaseError } = await supabase
           .from('Ticket')
           .insert([{ seat: ticketSeat, buyer: ticketBuyer, movie_id: selectedMovie }]);
         
         if (supabaseError) throw supabaseError;
-      } else {
+      } else if (!isAzure) {
         // Usar API en Google Cloud Run
         const res = await fetch("/api/tickets", {
           method: "POST",
@@ -183,7 +188,7 @@ export default function Home() {
     try {
       setError(null);
       
-      if (isAzure) {
+      if (isAzure && supabase) {
         // Usar Supabase directamente en Azure
         const { error: supabaseError } = await supabase
           .from('Movie')
@@ -191,7 +196,7 @@ export default function Home() {
           .eq('id', id);
         
         if (supabaseError) throw supabaseError;
-      } else {
+      } else if (!isAzure) {
         // Usar API en Google Cloud Run
         const res = await fetch("/api/movies", {
           method: "DELETE",
@@ -217,7 +222,7 @@ export default function Home() {
     try {
       setError(null);
       
-      if (isAzure) {
+      if (isAzure && supabase) {
         // Usar Supabase directamente en Azure
         const { error: supabaseError } = await supabase
           .from('Ticket')
@@ -225,7 +230,7 @@ export default function Home() {
           .eq('id', id);
         
         if (supabaseError) throw supabaseError;
-      } else {
+      } else if (!isAzure) {
         // Usar API en Google Cloud Run
         const res = await fetch("/api/tickets", {
           method: "DELETE",
