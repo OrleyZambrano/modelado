@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getPrismaClient } from '../../lib/prisma';
+import { getPrismaClient, disconnectPrisma } from '../../lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   let prisma;
@@ -30,28 +30,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   } catch (error) {
     console.error('Error en /api/tickets:', error);
-    
-    // Si es error de prepared statement, reintentar con nueva conexión
-    if (error instanceof Error && (
-      error.message.includes('prepared statement') || 
-      error.message.includes('already exists')
-    )) {
-      try {
-        if (prisma) await prisma.$disconnect();
-        const newPrisma = await getPrismaClient();
-        
-        if (req.method === 'GET') {
-          const tickets = await newPrisma.ticket.findMany();
-          return res.status(200).json(tickets);
-        }
-      } catch (retryError) {
-        console.error('Error en retry:', retryError);
-      }
-    }
-    
     res.status(500).json({ 
       error: 'Error interno del servidor',
       details: error instanceof Error ? error.message : 'Error desconocido'
     });
+  } finally {
+    // Siempre desconectar en producción
+    if (prisma && process.env.NODE_ENV === 'production') {
+      await disconnectPrisma(prisma);
+    }
   }
 }
