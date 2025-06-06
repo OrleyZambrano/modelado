@@ -36,7 +36,7 @@ on:
 
 env:
   PROJECT_ID: 'delpy-462022'
-  REGION: 'us-central1'
+  REGION: 'us-central1'  # Región correcta para modelado-app
   SERVICE: 'modelado-app'
 
 jobs:
@@ -77,4 +77,6 @@ jobs:
           image: 'gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:${{ github.sha }}'
           env_vars: |
             DATABASE_URL=${{ secrets.DATABASE_URL }}
+            NODE_ENV=production
+          flags: '--allow-unauthenticated'
 
