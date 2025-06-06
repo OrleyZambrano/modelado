@@ -69,6 +69,12 @@ jobs:
         env:
           DOCKER_TAG: 'gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:${{ github.sha }}'
 
+      - name: 'Push Docker image'
+        run: |
+          docker push $DOCKER_TAG
+        env:
+          DOCKER_TAG: 'gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:${{ github.sha }}'
+
       - name: 'Deploy to Cloud Run'
         uses: 'google-github-actions/deploy-cloudrun@v2'
         with:
