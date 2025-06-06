@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { SupabaseClient } from '@supabase/supabase-js';
 
 interface Movie {
   id: number;
@@ -32,7 +33,7 @@ export default function Home() {
   const isAzure = typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net');
 
   // Configurar Supabase solo en el cliente
-  const [supabase, setSupabase] = useState<any>(null);
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
 
   useEffect(() => {
     setMounted(true);
